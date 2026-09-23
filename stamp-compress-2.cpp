@@ -69,6 +69,7 @@ int main() {
     unsigned char dataChar[N*N];
     unsigned char dctLUTChar[N*N];
     unsigned char dctLUTAbsChar[N*N];
+    unsigned char dctDirectAbsChar[N*N];
     unsigned char invDirectChar[N*N];
     unsigned char invLUTChar[N*N];
     unsigned char sparseChar[N*N];
@@ -195,6 +196,17 @@ int main() {
 
             dctLUT[v*N + u] = sum + transSum;
             //dctLUT[v*N + u] = sum;
+
+            // Finally, subtract off from data the current coefficient term
+            // (Applying one coefficient)
+            float c = dctLUT[v*N + u];
+
+            for (int y = 0; y < N; y++) {
+                for (int x = 0; x < N; x++) {
+                    data[y*N + x] -= c * DCT_LK[N*N*N*v + N*N*y + N*u + x];
+                }
+            }
+
         }
     }
     //printMat("DCT (table):", dctLUT);
@@ -249,7 +261,7 @@ int main() {
     for (int y = 0; y < N; y++) {
         for (int x = 0; x < N; x++) {
             int ibIdx = (y*N + x)*4;
-            if (true) {
+            if (dataMask[y*N + x] != 0) {
                 imageBuffer[ibIdx+0] = toByte(invLUT[N*y + x]);
                 imageBuffer[ibIdx+1] = toByte(invLUT[N*y + x]);
                 imageBuffer[ibIdx+2] = toByte(invLUT[N*y + x]);
@@ -317,9 +329,10 @@ int main() {
     for (int k = 0; k < N*N; k++) {
         dataChar[k]       = toByte(data[k]);
         // Signed DCT coefficients (centered on gray), with arbitary scaling factor
-        dctLUTChar[k]     = toByte(0.5f + dctLUT[k] * 0.15f);
+        dctLUTChar[k]     = toByte(1.0f + dctLUT[k] * 0.15f);
         // Unsigned magnitude of coefficient
-        dctLUTAbsChar[k]     = toByte(fabsf(dctLUT[k]) * 0.15f);
+        dctLUTAbsChar[k]     = fabsf(dctLUT[k]) * 0.15f * 255.0f;
+        dctDirectAbsChar[k]  = fabsf(dctDirect[k]) * 0.15f * 255.0f;
         invDirectChar[k]  = toByte(invDirect[k]);
         invLUTChar[k]     = toByte(invLUT[k]);
         sparseChar[k]     = toByte(sparseReconLUT[k]);
@@ -334,6 +347,7 @@ int main() {
     stbi_write_png("data.png",                N, N, 1, dataChar, N);
     stbi_write_png("dct_LUT.png",             N, N, 1, dctLUTChar, N);
     stbi_write_png("dct_LUT_abs.png",         N, N, 1, dctLUTAbsChar, N);
+    stbi_write_png("dct_Direct_abs.png",      N, N, 1, dctDirectAbsChar, N);
     stbi_write_png("directRecon.png",         N, N, 1, invDirectChar, N);
     stbi_write_png("dataReconLUT.png",        N, N, 1, invLUTChar, N);
     stbi_write_png("dataReconLUT_sparse.png", N, N, 1, sparseChar, N);
