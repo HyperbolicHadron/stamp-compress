@@ -15,6 +15,12 @@ static const int N = 32;
 
 static const float PI = 3.14159265358979f;
 
+// Size of each GIF pixel, padded for nearest approx
+int PAD = 8;
+
+// Set to value for transparency, 256 disables for image output
+int MASK_CHECK = 0;
+
 // Layout conventions used everywhere:
 //   pixels        : [y*N + x]
 //   coefficients  : [v*N + u]   (u = x-frequency, v = y-frequency)
@@ -64,7 +70,7 @@ int main() {
     unsigned char* dctLUTImage = new unsigned char[(N+1)*(N+1)*N*N];
 
     // Buffers the gif images, stores RGBA
-    unsigned char imageBuffer[N*N*4];
+    unsigned char imageBuffer[N*N*PAD*PAD*4];
 
     // Individual image buffers for data converted to unsigned char
     unsigned char dataChar[N*N];
@@ -104,7 +110,7 @@ int main() {
     }
 
     // GIF setup
-    int gifWidth = N, gifHeight = N, centisecondsPerFrame = 50, quality = 16;
+    int gifWidth = N*PAD, gifHeight = N*PAD, centisecondsPerFrame = 50, quality = 16;
     MsfGifState gifState = {};
     // Uncomment to enable gif transparency
     //msf_gif_alpha_threshold = 128;
@@ -261,30 +267,36 @@ int main() {
         for (int y = 0; y < N; y++) {
             for (int x = 0; x < N; x++) {
                 int dataIdx = N*y + x;
-                int ibIdx = dataIdx*4;
+                //int ibIdx = dataIdx*4;
 
-                if (dataMask[dataIdx] != 0) {
-                //if (dataMask[y*N + x] != 256) {
-                    imageBuffer[ibIdx+0] = toByte(invLUT[dataIdx]);
-                    imageBuffer[ibIdx+1] = toByte(invLUT[dataIdx]);
-                    imageBuffer[ibIdx+2] = toByte(invLUT[dataIdx]);
-                    imageBuffer[ibIdx+3] = 0xFF;
-                } else {
-                    imageBuffer[ibIdx+0] = 0x40;
-                    imageBuffer[ibIdx+1] = 0x40;
-                    imageBuffer[ibIdx+2] = 0x40;
-                    imageBuffer[ibIdx+3] = 0x00;
+                for (int padX = 0; padX < PAD; padX++) {
+                    for (int padY = 0; padY < PAD; padY++) {
+
+                        int ibIdx = (PAD*PAD*N*(y) + PAD*N*padY + (PAD*x + padX))*4;
+
+                        if (dataMask[dataIdx] != MASK_CHECK) {
+                            imageBuffer[ibIdx+0] = toByte(invLUT[dataIdx]);
+                            imageBuffer[ibIdx+1] = toByte(invLUT[dataIdx]);
+                            imageBuffer[ibIdx+2] = toByte(invLUT[dataIdx]);
+                            imageBuffer[ibIdx+3] = 0xFF;
+                        } else {
+                            imageBuffer[ibIdx+0] = 0x40;
+                            imageBuffer[ibIdx+1] = 0x40;
+                            imageBuffer[ibIdx+2] = 0x40;
+                            imageBuffer[ibIdx+3] = 0x00;
+                        }
+                    }
                 }
 
             }
         }
 
-        msf_gif_frame(&gifState, imageBuffer, centisecondsPerFrame, quality, width * 4);
+        msf_gif_frame(&gifState, imageBuffer, centisecondsPerFrame, quality, gifWidth * 4);
 
     }
 
     // Have final result displayed for longer
-    msf_gif_frame(&gifState, imageBuffer, centisecondsPerFrame * 2, quality, width * 4);
+    msf_gif_frame(&gifState, imageBuffer, centisecondsPerFrame * 2, quality, gifWidth * 4);
 
     // Write GIF
     MsfGifResult result = msf_gif_end(&gifState);
@@ -324,7 +336,7 @@ int main() {
         invDirectChar[k]  = toByte(invDirect[k]);
         invLUTChar[k]     = toByte(invLUT[k]);
 
-        if (dataMask[k] !=0) {
+        if (dataMask[k] != MASK_CHECK) {
             invLUTMaskedChar[k] = invLUTChar[k];
         } else {
             invLUTMaskedChar[k] = 0x40;
