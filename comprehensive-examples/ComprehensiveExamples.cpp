@@ -73,12 +73,12 @@ int main() {
     unsigned char imageBuffer[N*N*PAD*PAD*4];
 
     // Individual image buffers for data converted to unsigned char
-    unsigned char dataChar[N*N];
-    unsigned char dctCoeffLUTAbsChar[N*N];
-    unsigned char dctCoeffDirectAbsChar[N*N];
-    unsigned char invDirectChar[N*N];
-    unsigned char invLUTChar[N*N];
-    unsigned char invLUTMaskedChar[N*N];
+    unsigned char dataChar[N*PAD*N*PAD];
+    unsigned char dctCoeffLUTAbsChar[N*PAD*N*PAD];
+    unsigned char dctCoeffDirectAbsChar[N*PAD*N*PAD];
+    unsigned char invDirectChar[N*PAD*N*PAD];
+    unsigned char invLUTChar[N*PAD*N*PAD];
+    unsigned char invLUTMaskedChar[N*PAD*N*PAD];
 
     // Loads the input image
     int width, height, bpp;
@@ -323,32 +323,42 @@ int main() {
     printf("  DCT DC coefficient = %f, sum(data)/N = %f\n", dctCoeffLUT[0], averageData);
 
     // Image output
-    for (int k = 0; k < N*N; k++) {
-        dataChar[k]       = toByte(data[k]);
-        // Signed DCT coefficients (centered on gray)
-        // Scaling factor is currently arbitrary, in order to normalize to
-        // practical range, instead of theoretical maximum which would be
-        // much larger and reduce constrast of most real DCT images
-        float DCT_SCALE = 0.15f;
-        // Unsigned magnitude of coefficient
-        dctCoeffLUTAbsChar[k]     = fabsf(dctCoeffLUT[k]) * DCT_SCALE * 255.0f;
-        dctCoeffDirectAbsChar[k]  = fabsf(dctCoeffDirect[k]) * DCT_SCALE * 255.0f;
-        invDirectChar[k]  = toByte(invDirect[k]);
-        invLUTChar[k]     = toByte(invLUT[k]);
+    for (int y = 0; y < N; y++) {
+        for (int x = 0; x < N; x++) {
+            int dataIdx = N*y + x;
 
-        if (dataMask[k] != MASK_CHECK) {
-            invLUTMaskedChar[k] = invLUTChar[k];
-        } else {
-            invLUTMaskedChar[k] = 0x40;
+            for (int padX = 0; padX < PAD; padX++) {
+                for (int padY = 0; padY < PAD; padY++) {
+
+                    int ibIdx = (PAD*PAD*N*(y) + PAD*N*padY + (PAD*x + padX));
+
+                    dataChar[ibIdx]       = toByte(data[dataIdx]);
+                    // Signed DCT coefficients (centered on gray)
+                    // Scaling factor is currently arbitrary, in order to normalize to
+                    // practical range, instead of theoretical maximum which would be
+                    // much larger and reduce constrast of most real DCT images
+                    float DCT_SCALE = 0.15f;
+                    // Unsigned magnitude of coefficient
+                    dctCoeffLUTAbsChar[ibIdx]     = fabsf(dctCoeffLUT[dataIdx]) * DCT_SCALE * 255.0f;
+                    dctCoeffDirectAbsChar[ibIdx]  = fabsf(dctCoeffDirect[dataIdx]) * DCT_SCALE * 255.0f;
+                    invDirectChar[ibIdx]  = toByte(invDirect[dataIdx]);
+                    invLUTChar[ibIdx]     = toByte(invLUT[dataIdx]);
+
+                    if (dataMask[dataIdx] != MASK_CHECK) {
+                        invLUTMaskedChar[ibIdx] = invLUTChar[dataIdx];
+                    } else {
+                        invLUTMaskedChar[ibIdx] = 0x40;
+                    }
+                }
+            }
         }
-
     }
-    stbi_write_png("data.png",                N, N, 1, dataChar, N);
-    stbi_write_png("dct_coeff_LUT_abs.png",   N, N, 1, dctCoeffLUTAbsChar, N);
-    stbi_write_png("dct_coeff_Direct_abs.png",N, N, 1, dctCoeffDirectAbsChar, N);
-    stbi_write_png("reconst_direct.png",      N, N, 1, invDirectChar, N);
-    stbi_write_png("reconst_LUT.png",         N, N, 1, invLUTChar, N);
-    stbi_write_png("reconst_LUT_Masked.png",  N, N, 1, invLUTMaskedChar,N);
+    stbi_write_png("data.png",                N*PAD, N*PAD, 1, dataChar, N*PAD);
+    stbi_write_png("dct_coeff_LUT_abs.png",   N*PAD, N*PAD, 1, dctCoeffLUTAbsChar, N*PAD);
+    stbi_write_png("dct_coeff_Direct_abs.png",N*PAD, N*PAD, 1, dctCoeffDirectAbsChar, N*PAD);
+    stbi_write_png("reconst_direct.png",      N*PAD, N*PAD, 1, invDirectChar, N*PAD);
+    stbi_write_png("reconst_LUT.png",         N*PAD, N*PAD, 1, invLUTChar, N*PAD);
+    stbi_write_png("reconst_LUT_Masked.png",  N*PAD, N*PAD, 1, invLUTMaskedChar,N*PAD);
 
     delete[] DCT_LUT;
     delete[] dctLUTImage;
